@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aurora Sonification</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, black, #ff0d00, #00ffcc, #00ff6e,#0044ff, #00ccff, #ff0033);
+            z-index: -1;
+        }
+        .background::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent, white 30%, transparent);
+            mix-blend-mode: overlay;
+        }
+        .background::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to right, transparent, white 20%, transparent);
+            mix-blend-mode: overlay;
+        }
+        .container {
+            max-width: 800px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.8); /* Semi-transparent background */
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1;
+            text-align: center; /* Center the button */
+        }
+        .button {
+            padding: 10px 20px;
+            margin: 5px;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+        .button:hover {
+            opacity: 0.8;
+        }
+        .button.blue {
+            background-color: blue;
+        }
+        .button.green {
+            background-color: green;
+        }
+        .button.orange {
+            background-color: orange;
+        }
+        .button.red {
+            background-color: red;
+        }
+        .button.disabled {
+            background-color: gray;
+            cursor: not-allowed;
+        }
+        #midiPlayer {
+            height: 200px;
+            background-color: lightgray;
+            margin: 20px 0;
+        }
+        #brailleContainer {
+            margin: 20px 0;
+        }
+        #feedbackMessage {
+            color: green;
+            margin-top: 10px;
+        }
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.9); /* Semi-transparent background */
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            overflow-y: auto;
+            max-height: 80%;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h2 {
+            margin: 0;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .modal-body {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="background"></div>
+    <div class="container">
+        <h1>Aurora Sonification</h1>
+        <button class="button blue" aria-label="Send North Data" onclick="sendAuroraData('north')">Send North Data</button>
+        <button class="button red" aria-label="Send South Data" onclick="sendAuroraData('south')">Send South Data</button>
+   
+        <div id="brailleContainer">
+            <button class="button green" aria-label="Brailled Aurora" onclick="displayBrailleFile()">Display Braille File</button>
+        </div>
+        <div id="feedbackMessage"></div>
+    </div>
+    <!-- Modal for displaying Braille text -->
+    <div class="modal" id="brailleModal">
+        <div class="modal-header">
+            <h2>Brailled Aurora</h2>
+            <button class="modal-close" aria-label="Close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="brailleText"></div>
+    </div>
+    <script>
+        async function sendAuroraData(direction) {
+            const feedbackMessage = document.getElementById('feedbackMessage');
+            feedbackMessage.textContent = `Sending data from ${direction}...`;
+            try {
+                const response = await fetch('/generate_sound', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ direction: direction }),
+                });
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'asonifiy.mid';
+                a.click();
+                feedbackMessage.textContent = `Successfully sent ${direction} data and downloaded MIDI file.`;
+            } catch (error) {
+                console.error('Error sending aurora data:', error);
+                feedbackMessage.textContent = 'Error sending data. Please try again.';
+            }
+        }
+
+        async function displayBrailleFile() {
+            const brailleText = document.getElementById('brailleText');
+            const modal = document.getElementById('brailleModal');
+            try {
+                const response = await fetch('aurora_braille.brl');
+                if (response.ok) {
+                    const text = await response.text();
+                    brailleText.textContent = text;
+                } else {
+                    brailleText.textContent = 'Error loading Braille file.';
+                }
+                modal.style.display = 'block';
+            } catch (error) {
+                console.error('Error loading Braille file:', error);
+                brailleText.textContent = 'Error loading Braille file. Please try again.';
+            }
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('brailleModal');
+            modal.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
